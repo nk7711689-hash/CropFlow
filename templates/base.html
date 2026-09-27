@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="{{ session.get('lang', 'ar') }}" dir="{{ 'rtl' if session.get('lang', 'ar') == 'ar' else 'ltr' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="CropFlow - منصة توريد زراعي تربط المزارع بالأعمال">
+    <meta name="theme-color" content="#f7f8f4">
+    <title>CropFlow · {% block title %}{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap{{ '.rtl' if session.get('lang', 'ar') == 'ar' else '' }}.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="splash-screen" data-splash role="dialog" aria-label="CropFlow intro">
+        <div class="splash-content"><span class="splash-mark"><i class="fa-solid fa-leaf"></i></span><span class="splash-wordmark">Crop<span>Flow</span></span><p>{{ _('From the farm\nstraight to business.') }}</p><button class="splash-skip" type="button" data-splash-skip>{{ _('Skip intro') }}</button></div>
+    </div>
+    <header class="site-header">
+        <div class="container header-inner">
+            <a class="brand" href="{{ url_for('index') }}" aria-label="CropFlow home">
+                <span class="brand-mark"><i class="fa-solid fa-leaf"></i></span>
+                <span>Crop<span>Flow</span></span>
+            </a>
+            <nav class="desktop-nav" aria-label="Main navigation">
+                <a href="{{ url_for('index') }}">{{ _('Marketplace') }}</a>
+                {% if current_user.is_authenticated and current_user.role == 'farmer' %}<a href="{{ url_for('dashboard') }}">{{ _('Dashboard') }}</a>{% endif %}
+            </nav>
+            <div class="header-actions">
+                <button class="icon-button quiet-action" type="button" data-theme-toggle aria-label="Toggle dark mode" title="Toggle dark mode"><i class="fa-solid fa-moon"></i></button>
+                <a class="language-chip" href="{{ url_for('set_language', lang='en' if session.get('lang', 'ar') == 'ar' else 'ar') }}">{{ 'EN' if session.get('lang', 'ar') == 'ar' else 'عربي' }}</a>
+                {% if current_user.is_authenticated %}
+                {% if current_user.role == 'buyer' %}<button class="cart-trigger" type="button" data-cart-open title="{{ _('Shopping cart') }}" aria-label="{{ _('Shopping cart') }}"><i class="fa-solid fa-cart-shopping"></i><span class="cart-badge" data-cart-count>0</span></button>{% endif %}
+                <a class="avatar-link" href="{{ url_for('profile') }}"><span class="avatar">{{ (current_user.full_name or current_user.username)[0]|upper }}</span><span class="user-label">{{ current_user.full_name or current_user.username }}</span></a>
+                <a class="header-profile-action" href="{{ url_for('profile') }}" title="{{ _('Edit profile') }}" aria-label="{{ _('Edit profile') }}"><i class="fa-solid fa-gear"></i></a>
+                <form method="POST" action="{{ url_for('logout') }}" class="header-logout" onsubmit="return confirm('{{ _('Are you sure you want to sign out?') }}');"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><button class="header-profile-action" type="submit" title="{{ _('Sign out securely') }}" aria-label="{{ _('Sign out securely') }}"><i class="fa-solid fa-arrow-right-from-bracket"></i></button></form>
+                {% else %}
+                <a class="header-login" href="{{ url_for('login') }}">{{ _('Sign in') }}</a>
+                <a class="button button-primary button-small" href="{{ url_for('register') }}">{{ _('Get started') }} <i class="fa-solid fa-arrow-left"></i></a>
+                {% endif %}
+                <button class="menu-button" type="button" data-drawer-open aria-label="Open navigation"><i class="fa-solid fa-bars"></i></button>
+            </div>
+        </div>
+    </header>
+
+    <aside class="nav-drawer" data-drawer aria-hidden="true">
+        <div class="drawer-header"><div><span class="eyebrow">CROP<span>FLOW</span></span><p class="drawer-title">{{ _('Your command center') }}</p></div><button class="icon-button" type="button" data-drawer-close aria-label="Close navigation"><i class="fa-solid fa-xmark"></i></button></div>
+        <div class="drawer-body">
+            <p class="drawer-label">{{ _('Workspace') }}</p>
+            <a class="drawer-link" href="{{ url_for('index') }}"><i class="fa-solid fa-grip"></i>{{ _('Marketplace') }}</a>
+            {% if current_user.is_authenticated and current_user.role == 'farmer' %}<a class="drawer-link" href="{{ url_for('dashboard') }}"><i class="fa-solid fa-chart-line"></i>{{ _('Dashboard') }}</a>{% endif %}
+            {% if current_user.is_authenticated %}<a class="drawer-link" href="{{ url_for('profile') }}"><i class="fa-regular fa-user"></i>{{ _('Profile settings') }}</a>{% endif %}
+            <p class="drawer-label">{{ _('Preferences') }}</p>
+            <div class="drawer-setting"><span><i class="fa-solid fa-circle-half-stroke"></i>{{ _('Appearance') }}</span><button class="switch" type="button" data-theme-toggle aria-label="Toggle appearance"><span></span></button></div>
+            <div class="language-links"><span><i class="fa-solid fa-globe"></i>{{ _('Language') }}</span><span><a href="{{ url_for('set_language', lang='ar') }}">عربي</a><a href="{{ url_for('set_language', lang='en') }}">EN</a></span></div>
+            <div class="drawer-setting"><span><i class="fa-regular fa-bell"></i>{{ _('Notification preferences') }}</span><button class="switch" type="button" data-notification-toggle aria-label="Toggle notifications"><span></span></button></div>
+            <p class="drawer-label">{{ _('Support') }}</p>
+            <a class="drawer-link" href="mailto:hello@cropflow.local"><i class="fa-regular fa-circle-question"></i>{{ _('Help center') }}</a>
+            <a class="drawer-link" href="#privacy"><i class="fa-solid fa-shield-halved"></i>{{ _('Privacy policy') }}</a>
+            {% if current_user.is_authenticated %}<form method="POST" action="{{ url_for('logout') }}" class="drawer-logout" onsubmit="return confirm('{{ _('Are you sure you want to sign out?') }}');"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><button type="submit"><i class="fa-solid fa-arrow-right-from-bracket"></i>{{ _('Sign out securely') }}</button></form>{% endif %}
+        </div>
+    </aside>
+    <div class="drawer-backdrop" data-drawer-close></div>
+
+    {% if current_user.is_authenticated and current_user.role == 'buyer' %}<aside class="cart-drawer" data-cart-drawer aria-hidden="true"><div class="cart-drawer-header"><div><span class="eyebrow">CROPFLOW</span><h2>{{ _('Shopping cart') }}</h2></div><button class="icon-button" type="button" data-cart-close aria-label="{{ _('Close cart') }}"><i class="fa-solid fa-xmark"></i></button></div><div class="cart-drawer-body" data-cart-items><p class="cart-empty">{{ _('Your cart is empty.') }}</p></div><div class="cart-drawer-footer"><div class="cart-total"><span>{{ _('Estimated total') }}</span><strong data-cart-total>0.00 {{ _('Dinar') }}</strong></div><a class="button button-primary w-100" href="{{ url_for('cart_page') }}">{{ _('View cart and checkout') }} <i class="fa-solid fa-arrow-left"></i></a></div></aside><div class="cart-backdrop" data-cart-close></div>{% endif %}
+
+    <div class="flash-container" aria-live="polite">
+        {% with messages = get_flashed_messages(with_categories=true) %}{% for category, message in messages %}<div class="flash flash-{{ category }}"><i class="fa-solid {{ 'fa-circle-check' if category == 'success' else 'fa-circle-exclamation' }}"></i><span>{{ message }}</span></div>{% endfor %}{% endwith %}
+    </div>
+
+    <main class="page-shell">{% block content %}{% endblock %}</main>
+    <footer class="site-footer"><div class="container"><span class="brand brand-footer"><span class="brand-mark"><i class="fa-solid fa-leaf"></i></span><span>Crop<span>Flow</span></span></span><span>© 2026 CropFlow · {{ _('Built for better supply chains.') }}</span></div></footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        window.cropflowCsrfToken = '{{ csrf_token() }}';
+        const body = document.body;
+        const drawer = document.querySelector('[data-drawer]');
+        const toggleDrawer = (open) => { body.classList.toggle('drawer-open', open); drawer?.setAttribute('aria-hidden', String(!open)); };
+        document.querySelectorAll('[data-drawer-open]').forEach((button) => button.addEventListener('click', () => toggleDrawer(true)));
+        document.querySelectorAll('[data-drawer-close]').forEach((button) => button.addEventListener('click', () => toggleDrawer(false)));
+        document.querySelectorAll('[data-theme-toggle]').forEach((button) => button.addEventListener('click', () => { const dark = body.classList.toggle('dark-mode'); localStorage.setItem('cropflow-theme', dark ? 'dark' : 'light'); }));
+        if (localStorage.getItem('cropflow-theme') === 'dark') body.classList.add('dark-mode');
+        const notificationButtons = document.querySelectorAll('[data-notification-toggle]');
+        const notificationsOff = localStorage.getItem('cropflow-notifications') === 'off';
+        body.classList.toggle('notifications-off', notificationsOff);
+        notificationButtons.forEach((button) => { button.setAttribute('aria-pressed', String(!notificationsOff)); button.addEventListener('click', () => { const off = body.classList.toggle('notifications-off'); localStorage.setItem('cropflow-notifications', off ? 'off' : 'on'); notificationButtons.forEach((item) => item.setAttribute('aria-pressed', String(!off))); }); });
+        const cartKey = 'cropflow-cart-{{ current_user.id if current_user.is_authenticated else "guest" }}';
+        const readCart = () => JSON.parse(localStorage.getItem(cartKey) || '[]');
+        const writeCart = (items) => { localStorage.setItem(cartKey, JSON.stringify(items)); window.dispatchEvent(new CustomEvent('cropflow-cart-updated')); };
+        const cartTotal = (items) => items.reduce((total, item) => total + item.price * item.quantity, 0);
+        const renderCart = () => { const items = readCart(); document.querySelectorAll('[data-cart-count]').forEach((badge) => { badge.textContent = items.length; badge.hidden = items.length === 0; }); document.querySelectorAll('[data-cart-total]').forEach((total) => { total.textContent = `${cartTotal(items).toFixed(2)} {{ _('Dinar') }}`; }); const container = document.querySelector('[data-cart-items]'); if (!container) return; if (!items.length) { container.innerHTML = '<p class="cart-empty">{{ _('Your cart is empty.') }}</p>'; return; } container.innerHTML = items.map((item) => `<div class="cart-line"><div><strong>${item.name}</strong><small>${item.price.toFixed(2)} {{ _('Dinar') }} / kg</small></div><div class="cart-line-controls"><input type="number" min="${item.minimum}" max="${item.stock}" step="0.01" value="${item.quantity}" data-cart-quantity="${item.id}"><button type="button" title="{{ _('Remove') }}" data-cart-remove="${item.id}"><i class="fa-solid fa-trash"></i></button></div></div>`).join(''); container.querySelectorAll('[data-cart-remove]').forEach((button) => button.addEventListener('click', () => writeCart(readCart().filter((item) => String(item.id) !== button.dataset.cartRemove)))); };
+        const toggleCart = (open) => { body.classList.toggle('cart-open', open); document.querySelector('[data-cart-drawer]')?.setAttribute('aria-hidden', String(!open)); if (open) renderCart(); };
+        document.querySelectorAll('[data-cart-open]').forEach((button) => button.addEventListener('click', () => toggleCart(true))); document.querySelectorAll('[data-cart-close]').forEach((button) => button.addEventListener('click', () => toggleCart(false))); window.addEventListener('cropflow-cart-updated', renderCart); renderCart();
+        document.querySelectorAll('[data-add-to-cart]').forEach((button) => button.addEventListener('click', () => { const form = button.closest('[data-cart-form]'); const item = { id: button.dataset.id, name: button.dataset.name, farmId: button.dataset.farmId, farmName: button.dataset.farmName, price: Number(button.dataset.price), stock: Number(button.dataset.stock), minimum: Number(button.dataset.minimum), quantity: Number(form?.querySelector('[data-cart-quantity-input]')?.value || button.dataset.minimum) }; const items = readCart(); const existing = items.find((entry) => String(entry.id) === String(item.id)); if (existing) existing.quantity = Math.min(existing.stock, existing.quantity + item.quantity); else items.push(item); writeCart(items); toggleCart(true); }));
+        window.setTimeout(() => document.querySelectorAll('.flash').forEach((flash) => flash.classList.add('flash-hidden')), 4500);
+        const splash = document.querySelector('[data-splash]');
+        const closeSplash = () => { if (!splash) return; splash.classList.add('splash-hidden'); sessionStorage.setItem('cropflow-intro-seen', '1'); window.setTimeout(() => splash.remove(), 450); };
+        if (sessionStorage.getItem('cropflow-intro-seen')) splash?.remove();
+        else { window.setTimeout(closeSplash, 3000); document.querySelector('[data-splash-skip]')?.addEventListener('click', closeSplash); }
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
