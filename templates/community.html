@@ -1,0 +1,8 @@
+{% extends 'base.html' %}
+{% block title %}Community{% endblock %}
+{% block content %}
+<section class="workspace-page container">
+  <form class="market-tools" method="GET" style="margin-bottom: 30px;"><label class="search-box"><i class="fa-solid fa-magnifying-glass"></i><input name="q" type="search" value="{{ query }}" placeholder="{{ _('Search by name or username') }}" aria-label="{{ _('Search accounts') }}"></label><button class="button button-primary" type="submit">{{ _('Search') }}</button></form>
+  <div class="account-grid">{% for user in users %}<article class="account-card"><span class="account-avatar">{% if user.avatar_path %}<img src="{{ url_for('static', filename=user.avatar_path) }}" alt="">{% else %}{{ (user.full_name or user.username)[0]|upper }}{% endif %}</span><div class="account-copy"><h2>{{ user.full_name or user.username }}</h2><p>@{{ user.username }} · {{ _('Farmer') if user.role == 'farmer' else _('Buyer') }}</p>{% if user.location %}<small><i class="fa-solid fa-location-dot"></i> {{ user.location }}</small>{% endif %}</div><a class="button button-quiet button-small" href="{{ url_for('user_profile', user_id=user.id) }}">{{ _('View Profile') }}</a></article>{% else %}<div class="empty-state"><i class="fa-solid fa-users"></i><h3>{{ _('No accounts found') }}</h3></div>{% endfor %}</div>
+</section>
+{% endblock %}

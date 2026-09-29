@@ -1,13 +1,13 @@
 from flask import Flask, render_template, redirect, url_for, request, flash, jsonify, session
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, User, Product, ProductImage, Reservation
+from models import db, User, Product, ProductImage, Reservation, Message, MessagePermission, Worker
 from datetime import date, datetime, timedelta
 import os
 from dotenv import load_dotenv
 from authlib.integrations.flask_client import OAuth
 from flask_babel import Babel, _
-from sqlalchemy import inspect, text
+from sqlalchemy import inspect, text, or_, and_
 from hmac import compare_digest
 import secrets
 import time
@@ -19,7 +19,8 @@ load_dotenv()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default_super_secret_key')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///cropflow.db'
+# DATABASE_URL enables PostgreSQL while keeping SQLite as a local fallback.
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///cropflow.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
@@ -37,6 +38,33 @@ def get_locale():
 babel = Babel(app, locale_selector=get_locale)
 
 TRANSLATIONS = {
+    'Login with Terralogic': 'تسجيل الدخول بواسطة Terralogic',
+    'YOUR ACCOUNT': 'حسابك', 'Settings': 'الإعدادات',
+    'Manage your profile, appearance and privacy.': 'إدارة ملفك الشخصي والمظهر والخصوصية.',
+    'Account details': 'تفاصيل الحساب',
+    'Edit your name, photo, location and profile.': 'تعديل اسمك وصورتك وموقعك وملفك الشخصي.',
+    'Shopping cart': 'سلة المشتريات',
+    'View your cart and checkout.': 'عرض سلة المشتريات والدفع.',
+    'Choose light, dark or follow your device.': 'اختر فاتح، داكن أو اتبع إعدادات جهازك.',
+    'System': 'النظام', 'Light': 'فاتح', 'Dark': 'داكن', 'Save': 'حفظ',
+    'Change platform language.': 'تغيير لغة المنصة.',
+    'Who can message me?': 'من يمكنه مراسلتي؟',
+    'Everyone': 'الجميع', 'Selected accounts': 'حسابات محددة',
+    'Save settings': 'حفظ الإعدادات', 'Log out': 'تسجيل الخروج',
+    'Search by name or username': 'ابحث بالاسم أو اسم المستخدم',
+    'Search accounts': 'البحث عن الحسابات', 'Search': 'بحث',
+    'No accounts found': 'لم يتم العثور على حسابات',
+    'View Profile': 'عرض الملف الشخصي',
+    'No conversations yet. Find an account in Community to start one.': 'لا توجد محادثات بعد. ابحث عن حساب في المجتمع لبدء واحدة.',
+    'Start the conversation.': 'ابدأ المحادثة.',
+    'Write a message...': 'اكتب رسالة...',
+    'Send message': 'إرسال رسالة',
+    'Select a conversation': 'اختر محادثة',
+    'Open Community to find an account and start messaging.': 'افتح المجتمع للبحث عن حساب وبدء المراسلة.',
+    'Browse accounts': 'تصفح الحسابات',
+    'Public Profile': 'الملف الشخصي العام',
+    'No description provided.': 'لم يتم توفير وصف.',
+    'Message': 'مراسلة', 'Contact': 'تواصل',
     'Marketplace': 'السوق', 'Dashboard': 'لوحة التحكم', 'Sign in': 'تسجيل الدخول',
     'Get started': 'ابدأ الآن', 'Workspace': 'مساحة العمل', 'Profile settings': 'إعدادات الملف الشخصي',
     'Preferences': 'التفضيلات', 'Appearance': 'المظهر', 'Language': 'اللغة', 'Support': 'الدعم',
@@ -158,6 +186,18 @@ def load_user(user_id):
 def initialize_database():
     """Create new tables and add nullable columns to legacy SQLite databases."""
     inspector = inspect(db.engine)
+    if db.engine.dialect.name != 'sqlite':
+        db.create_all()
+        user_columns = {column['name'] for column in inspect(db.engine).get_columns('user')}
+        for column_name, column_type in {
+            'theme': "VARCHAR(20) NOT NULL DEFAULT 'system'",
+            'message_policy': "VARCHAR(20) NOT NULL DEFAULT 'everyone'",
+        }.items():
+            if column_name not in user_columns:
+                db.session.execute(text(f'ALTER TABLE "user" ADD COLUMN {column_name} {column_type}'))
+        db.session.commit()
+        return
+
     user_columns = {column['name'] for column in inspector.get_columns('user')} if inspector.has_table('user') else set()
     legacy_columns = {
         'email': 'VARCHAR(150)',
@@ -168,6 +208,8 @@ def initialize_database():
             , 'farm_description': 'TEXT'
             , 'farm_product_type': 'VARCHAR(120)'
             , 'avatar_path': 'VARCHAR(300)'
+            , 'theme': "VARCHAR(20) NOT NULL DEFAULT 'system'"
+            , 'message_policy': "VARCHAR(20) NOT NULL DEFAULT 'everyone'"
     }
     for column_name, column_type in legacy_columns.items():
         if column_name not in user_columns:
@@ -243,7 +285,7 @@ def index():
     products = Product.query.filter(
         Product.quantity > 0,
         Product.expiry_date >= date.today()
-    ).order_by(Product.date_added.desc()).all()
+    ).order_by(Product.name.asc(), Product.date_added.desc()).all()
     return render_template('index.html', products=products)
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -414,9 +456,20 @@ def logout():
     logout_user()
     return redirect(url_for('index'))
 
-@app.route('/profile', methods=['GET', 'POST'])
+@app.route('/profile')
 @login_required
 def profile():
+    return render_template('user_profile.html', user=current_user)
+
+@app.route('/user/<int:user_id>')
+def user_profile(user_id):
+    from models import User
+    user = User.query.get_or_404(user_id)
+    return render_template('user_profile.html', user=user)
+
+@app.route('/edit_profile', methods=['GET', 'POST'])
+@login_required
+def edit_profile():
     if request.method == 'POST':
         current_user.full_name = request.form.get('full_name')
         current_user.phone = request.form.get('phone')
@@ -424,22 +477,133 @@ def profile():
         if current_user.role == 'farmer':
             current_user.farm_description = request.form.get('farm_description')
             current_user.farm_product_type = request.form.get('farm_product_type')
-            avatar_path = save_farm_avatar(request.files.get('avatar'))
-            if avatar_path:
-                current_user.avatar_path = avatar_path
+        avatar_path = save_farm_avatar(request.files.get('avatar'))
+        if avatar_path:
+            current_user.avatar_path = avatar_path
         
         new_password = request.form.get('new_password')
         if new_password:
             if len(new_password) < 8 or not any(char.isupper() for char in new_password) or not any(char.isdigit() for char in new_password):
                 flash(_('New password must be at least 8 characters and include a number and an uppercase letter.'), 'danger')
-                return render_template('profile.html')
+                return render_template('edit_profile.html')
             current_user.password = generate_password_hash(new_password, method='pbkdf2:sha256')
             
         db.session.commit()
         flash(_('Profile updated successfully.'), 'success')
         return redirect(url_for('profile'))
         
-    return render_template('profile.html')
+    return render_template('edit_profile.html')
+
+@app.route('/settings', methods=['GET', 'POST'])
+@login_required
+def settings():
+    if request.method == 'POST':
+        theme = request.form.get('theme')
+        if theme in {'system', 'light', 'dark'}:
+            current_user.theme = theme
+        if 'message_policy' in request.form:
+            policy = request.form.get('message_policy', 'everyone')
+            current_user.message_policy = policy if policy in {'everyone', 'selected'} else 'everyone'
+            MessagePermission.query.filter_by(owner_id=current_user.id).delete()
+            if current_user.message_policy == 'selected':
+                ids = {int(value) for value in request.form.getlist('allowed_contact_ids') if value.isdigit()}
+                for contact in User.query.filter(User.id.in_(ids), User.id != current_user.id).all():
+                    db.session.add(MessagePermission(owner_id=current_user.id, contact_id=contact.id))
+        db.session.commit()
+        flash(_('Settings saved.'), 'success')
+        return redirect(url_for('settings'))
+    users = User.query.filter(User.id != current_user.id).order_by(User.username.asc()).all()
+    allowed_ids = {permission.contact_id for permission in current_user.message_permissions}
+    return render_template('settings.html', users=users, allowed_ids=allowed_ids)
+
+
+@app.route('/community')
+@login_required
+def community():
+    query = request.args.get('q', '').strip()
+    users = User.query.filter(User.id != current_user.id)
+    if query:
+        users = users.filter(or_(User.username.ilike(f'%{query}%'), User.full_name.ilike(f'%{query}%')))
+    users = users.order_by(User.full_name.asc(), User.username.asc()).limit(100).all()
+    return render_template('community.html', users=users, query=query)
+
+
+@app.route('/messages')
+@login_required
+def messages():
+    unread_count = Message.query.filter_by(recipient_id=current_user.id, read_at=None).count()
+    contacts = User.query.join(Message, or_(Message.sender_id == User.id, Message.recipient_id == User.id)).filter(
+        or_(Message.sender_id == current_user.id, Message.recipient_id == current_user.id), User.id != current_user.id
+    ).distinct().order_by(User.username.asc()).all()
+    partner = User.query.get(request.args.get('with', type=int)) if request.args.get('with', type=int) else None
+    if partner and partner.id == current_user.id:
+        partner = None
+    thread = []
+    if partner:
+        thread = Message.query.filter(or_(
+            and_(Message.sender_id == current_user.id, Message.recipient_id == partner.id),
+            and_(Message.sender_id == partner.id, Message.recipient_id == current_user.id)
+        )).order_by(Message.created_at.asc()).all()
+        Message.query.filter_by(sender_id=partner.id, recipient_id=current_user.id, read_at=None).update({Message.read_at: datetime.utcnow()})
+        db.session.commit()
+    return render_template('messages.html', contacts=contacts, partner=partner, thread=thread, unread_count=unread_count)
+
+
+@app.route('/messages/send/<int:recipient_id>', methods=['POST'])
+@login_required
+def send_message(recipient_id):
+    recipient = User.query.get_or_404(recipient_id)
+    body = request.form.get('body', '').strip()
+    if not body or len(body) > 4000:
+        flash(_('Write a message of up to 4000 characters.'), 'danger')
+    elif recipient.message_policy == 'selected' and not MessagePermission.query.filter_by(owner_id=recipient.id, contact_id=current_user.id).first():
+        flash(_('This account is not accepting messages from you.'), 'danger')
+    else:
+        db.session.add(Message(sender_id=current_user.id, recipient_id=recipient.id, body=body))
+        db.session.commit()
+    return redirect(url_for('messages', **{'with': recipient.id}))
+
+
+@app.route('/api/messages/<int:partner_id>')
+@login_required
+def poll_messages(partner_id):
+    partner = User.query.get_or_404(partner_id)
+    after_id = request.args.get('after', 0, type=int)
+    new_messages = Message.query.filter(or_(
+        and_(Message.sender_id == current_user.id, Message.recipient_id == partner.id),
+        and_(Message.sender_id == partner.id, Message.recipient_id == current_user.id)
+    ), Message.id > after_id).order_by(Message.id.asc()).all()
+    Message.query.filter_by(sender_id=partner.id, recipient_id=current_user.id, read_at=None).update({Message.read_at: datetime.utcnow()})
+    db.session.commit()
+    return jsonify({'messages': [{'id': item.id, 'sender_id': item.sender_id, 'body': item.body, 'created_at': item.created_at.strftime('%Y-%m-%d %H:%M')} for item in new_messages]})
+
+
+@app.route('/workers', methods=['GET', 'POST'])
+@login_required
+def workers():
+    if current_user.role != 'farmer':
+        flash(_('Unauthorized access.'), 'danger')
+        return redirect(url_for('index'))
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        if name:
+            db.session.add(Worker(name=name[:150], job_title=request.form.get('job_title', '').strip()[:120], phone=request.form.get('phone', '').strip()[:30], farmer_id=current_user.id))
+            db.session.commit()
+            flash(_('Worker added successfully.'), 'success')
+        return redirect(url_for('workers'))
+    return render_template('workers.html', workers=Worker.query.filter_by(farmer_id=current_user.id).order_by(Worker.name.asc()).all())
+
+
+@app.route('/workers/<int:worker_id>/delete', methods=['POST'])
+@login_required
+def delete_worker(worker_id):
+    if current_user.role != 'farmer':
+        return jsonify({'success': False}), 403
+    worker = Worker.query.filter_by(id=worker_id, farmer_id=current_user.id).first_or_404()
+    db.session.delete(worker)
+    db.session.commit()
+    return redirect(url_for('workers'))
+
 
 @app.route('/dashboard', methods=['GET', 'POST'])
 @login_required

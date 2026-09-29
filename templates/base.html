@@ -28,18 +28,6 @@
                 {% if current_user.is_authenticated and current_user.role == 'farmer' %}<a href="{{ url_for('dashboard') }}">{{ _('Dashboard') }}</a>{% endif %}
             </nav>
             <div class="header-actions">
-                <button class="icon-button quiet-action" type="button" data-theme-toggle aria-label="Toggle dark mode" title="Toggle dark mode"><i class="fa-solid fa-moon"></i></button>
-                <a class="language-chip" href="{{ url_for('set_language', lang='en' if session.get('lang', 'ar') == 'ar' else 'ar') }}">{{ 'EN' if session.get('lang', 'ar') == 'ar' else 'عربي' }}</a>
-                {% if current_user.is_authenticated %}
-                {% if current_user.role == 'buyer' %}<button class="cart-trigger" type="button" data-cart-open title="{{ _('Shopping cart') }}" aria-label="{{ _('Shopping cart') }}"><i class="fa-solid fa-cart-shopping"></i><span class="cart-badge" data-cart-count>0</span></button>{% endif %}
-                <a class="avatar-link" href="{{ url_for('profile') }}"><span class="avatar">{{ (current_user.full_name or current_user.username)[0]|upper }}</span><span class="user-label">{{ current_user.full_name or current_user.username }}</span></a>
-                <a class="header-profile-action" href="{{ url_for('profile') }}" title="{{ _('Edit profile') }}" aria-label="{{ _('Edit profile') }}"><i class="fa-solid fa-gear"></i></a>
-                <form method="POST" action="{{ url_for('logout') }}" class="header-logout" onsubmit="return confirm('{{ _('Are you sure you want to sign out?') }}');"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><button class="header-profile-action" type="submit" title="{{ _('Sign out securely') }}" aria-label="{{ _('Sign out securely') }}"><i class="fa-solid fa-arrow-right-from-bracket"></i></button></form>
-                {% else %}
-                <a class="header-login" href="{{ url_for('login') }}">{{ _('Sign in') }}</a>
-                <a class="button button-primary button-small" href="{{ url_for('register') }}">{{ _('Get started') }} <i class="fa-solid fa-arrow-left"></i></a>
-                {% endif %}
-                <button class="menu-button" type="button" data-drawer-open aria-label="Open navigation"><i class="fa-solid fa-bars"></i></button>
             </div>
         </div>
     </header>
@@ -65,6 +53,15 @@
 
     {% if current_user.is_authenticated and current_user.role == 'buyer' %}<aside class="cart-drawer" data-cart-drawer aria-hidden="true"><div class="cart-drawer-header"><div><span class="eyebrow">CROPFLOW</span><h2>{{ _('Shopping cart') }}</h2></div><button class="icon-button" type="button" data-cart-close aria-label="{{ _('Close cart') }}"><i class="fa-solid fa-xmark"></i></button></div><div class="cart-drawer-body" data-cart-items><p class="cart-empty">{{ _('Your cart is empty.') }}</p></div><div class="cart-drawer-footer"><div class="cart-total"><span>{{ _('Estimated total') }}</span><strong data-cart-total>0.00 {{ _('Dinar') }}</strong></div><a class="button button-primary w-100" href="{{ url_for('cart_page') }}">{{ _('View cart and checkout') }} <i class="fa-solid fa-arrow-left"></i></a></div></aside><div class="cart-backdrop" data-cart-close></div>{% endif %}
 
+    {% if current_user.is_authenticated %}
+    <nav class="bottom-tabs" aria-label="Primary navigation">
+        <a href="{{ url_for('index') }}" class="{% if request.endpoint == 'index' %}active{% endif %}"><i class="fa-solid fa-house"></i><span>Home</span></a>
+        <a href="{{ url_for('community') }}" class="{% if request.endpoint == 'community' %}active{% endif %}"><i class="fa-solid fa-users"></i><span>Community</span></a>
+        <a href="{{ url_for('messages') }}" class="{% if request.endpoint in ['messages', 'send_message'] %}active{% endif %}"><i class="fa-regular fa-message"></i><span>Messages</span></a>
+        <a href="{{ url_for('profile') }}" class="{% if request.endpoint in ['profile', 'settings'] %}active{% endif %}"><span class="tab-avatar">{% if current_user.avatar_path %}<img src="{{ url_for('static', filename=current_user.avatar_path) }}" alt="">{% else %}{{ (current_user.full_name or current_user.username)[0]|upper }}{% endif %}</span><span>Account</span></a>
+    </nav>
+    {% endif %}
+
     <div class="flash-container" aria-live="polite">
         {% with messages = get_flashed_messages(with_categories=true) %}{% for category, message in messages %}<div class="flash flash-{{ category }}"><i class="fa-solid {{ 'fa-circle-check' if category == 'success' else 'fa-circle-exclamation' }}"></i><span>{{ message }}</span></div>{% endfor %}{% endwith %}
     </div>
@@ -80,8 +77,10 @@
         const toggleDrawer = (open) => { body.classList.toggle('drawer-open', open); drawer?.setAttribute('aria-hidden', String(!open)); };
         document.querySelectorAll('[data-drawer-open]').forEach((button) => button.addEventListener('click', () => toggleDrawer(true)));
         document.querySelectorAll('[data-drawer-close]').forEach((button) => button.addEventListener('click', () => toggleDrawer(false)));
-        document.querySelectorAll('[data-theme-toggle]').forEach((button) => button.addEventListener('click', () => { const dark = body.classList.toggle('dark-mode'); localStorage.setItem('cropflow-theme', dark ? 'dark' : 'light'); }));
-        if (localStorage.getItem('cropflow-theme') === 'dark') body.classList.add('dark-mode');
+        const storedTheme = localStorage.getItem('cropflow-theme') || '{{ current_user.theme if current_user.is_authenticated else "system" }}';
+        const applyTheme = (theme) => { body.classList.toggle('dark-mode', theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)); };
+        applyTheme(storedTheme);
+        document.querySelectorAll('[data-theme-toggle]').forEach((button) => button.addEventListener('click', () => { const current = localStorage.getItem('cropflow-theme') || storedTheme; const next = current === 'system' ? 'light' : current === 'light' ? 'dark' : 'system'; localStorage.setItem('cropflow-theme', next); applyTheme(next); }));
         const notificationButtons = document.querySelectorAll('[data-notification-toggle]');
         const notificationsOff = localStorage.getItem('cropflow-notifications') === 'off';
         body.classList.toggle('notifications-off', notificationsOff);

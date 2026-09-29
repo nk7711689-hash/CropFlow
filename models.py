@@ -5,11 +5,16 @@ from datetime import datetime
 db = SQLAlchemy()
 
 class User(UserMixin, db.Model):
+    FARMER = 'farmer'
+    BUYER = 'buyer'
+    ROLES = (FARMER, BUYER)
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), unique=True, nullable=False)
     email = db.Column(db.String(150), unique=True, nullable=True) # Optional for now, required if normal register
     password = db.Column(db.String(150), nullable=True) # Nullable for Google login
     role = db.Column(db.String(50), nullable=False, default='buyer') # 'farmer' or 'buyer'
+    theme = db.Column(db.String(20), nullable=False, default='system')
+    message_policy = db.Column(db.String(20), nullable=False, default='everyone')
     
     # New fields for Phase 2
     full_name = db.Column(db.String(150), nullable=True)
@@ -21,6 +26,35 @@ class User(UserMixin, db.Model):
     google_id = db.Column(db.String(200), unique=True, nullable=True)
 
     products = db.relationship('Product', backref='farmer', lazy=True)
+
+
+class Message(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    sender_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    recipient_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    body = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+    read_at = db.Column(db.DateTime, nullable=True)
+    sender = db.relationship('User', foreign_keys=[sender_id], backref='sent_messages')
+    recipient = db.relationship('User', foreign_keys=[recipient_id], backref='received_messages')
+
+
+class MessagePermission(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    owner_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    contact_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    __table_args__ = (db.UniqueConstraint('owner_id', 'contact_id'),)
+    owner = db.relationship('User', foreign_keys=[owner_id], backref='message_permissions')
+    contact = db.relationship('User', foreign_keys=[contact_id])
+
+
+class Worker(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(150), nullable=False)
+    job_title = db.Column(db.String(120), nullable=True)
+    phone = db.Column(db.String(30), nullable=True)
+    farmer_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    farmer = db.relationship('User', backref=db.backref('workers', lazy=True, cascade='all, delete-orphan'))
 
 class Product(db.Model):
     id = db.Column(db.Integer, primary_key=True)

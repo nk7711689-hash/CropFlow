@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block title %}Messages{% endblock %}
+{% block content %}
+<section class="workspace-page container">
+<div class="inbox-layout"><aside class="inbox-contacts" style="padding-top: 15px;">{% for contact in contacts %}<a class="inbox-contact {% if partner and partner.id == contact.id %}selected{% endif %}" href="{{ url_for('messages', **{'with': contact.id}) }}"><span class="account-avatar">{{ (contact.full_name or contact.username)[0]|upper }}</span><span><strong>{{ contact.full_name or contact.username }}</strong><small>@{{ contact.username }}</small></span></a>{% else %}<p class="helper">{{ _('No conversations yet. Find an account in Community to start one.') }}</p>{% endfor %}</aside>
+<div class="chat-panel">{% if partner %}<header class="chat-heading"><span class="account-avatar">{{ (partner.full_name or partner.username)[0]|upper }}</span><div><strong>{{ partner.full_name or partner.username }}</strong><small>@{{ partner.username }}</small></div><a class="button button-quiet button-small" href="{{ url_for('user_profile', user_id=partner.id) }}">{{ _('View Profile') }}</a></header><div class="chat-history">{% for message in thread %}<article class="chat-bubble {% if message.sender_id == current_user.id %}mine{% endif %}"><p>{{ message.body }}</p><time>{{ message.created_at.strftime('%Y-%m-%d %H:%M') }}</time></article>{% else %}<p class="helper">{{ _('Start the conversation.') }}</p>{% endfor %}</div><form class="chat-compose" method="POST" action="{{ url_for('send_message', recipient_id=partner.id) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><textarea name="body" maxlength="4000" rows="2" required placeholder="{{ _('Write a message...') }}"></textarea><button class="button button-primary" type="submit" aria-label="{{ _('Send message') }}"><i class="fa-solid fa-paper-plane"></i></button></form>{% else %}<div class="empty-state"><i class="fa-regular fa-message"></i><h3>{{ _('Select a conversation') }}</h3><p>{{ _('Open Community to find an account and start messaging.') }}</p><a class="button button-primary" href="{{ url_for('community') }}">{{ _('Browse accounts') }}</a></div>{% endif %}</div></div></section>
+{% endblock %}
+{% block scripts %}{% if partner %}<script>
+const historyPanel = document.querySelector('.chat-history');
+let lastMessageId = {{ thread[-1].id if thread else 0 }};
+const pollMessages = async () => {
+  try {
+    const response = await fetch('{{ url_for('poll_messages', partner_id=partner.id) }}?after=' + lastMessageId, {headers: {'Accept': 'application/json'}});
+    if (!response.ok) return;
+    const data = await response.json();
+    data.messages.forEach((message) => {
+      if (message.id <= lastMessageId) return;
+      lastMessageId = message.id;
+      const bubble = document.createElement('article');
+      bubble.className = 'chat-bubble' + (message.sender_id === {{ current_user.id }} ? ' mine' : '');
+      const body = document.createElement('p'); body.textContent = message.body;
+      const time = document.createElement('time'); time.textContent = message.created_at;
+      bubble.append(body, time); historyPanel.append(bubble);
+    });
+    if (data.messages.length) historyPanel.scrollTop = historyPanel.scrollHeight;
+  } catch (_) { /* Retry on the next interval if the network is temporarily unavailable. */ }
+};
+window.setInterval(pollMessages, 4000);
+</script>{% endif %}{% endblock %}
