@@ -207,6 +207,7 @@ def initialize_database():
         for column_name, column_type in {
             'theme': "VARCHAR(20) NOT NULL DEFAULT 'system'",
             'message_policy': "VARCHAR(20) NOT NULL DEFAULT 'everyone'",
+            'is_location_public': 'BOOLEAN NOT NULL DEFAULT TRUE',
         }.items():
             if column_name not in user_columns:
                 db.session.execute(text(f'ALTER TABLE "user" ADD COLUMN {column_name} {column_type}'))
@@ -225,6 +226,7 @@ def initialize_database():
             , 'avatar_path': 'VARCHAR(300)'
             , 'theme': "VARCHAR(20) NOT NULL DEFAULT 'system'"
             , 'message_policy': "VARCHAR(20) NOT NULL DEFAULT 'everyone'"
+            , 'is_location_public': 'BOOLEAN NOT NULL DEFAULT 1'
     }
     for column_name, column_type in legacy_columns.items():
         if column_name not in user_columns:
