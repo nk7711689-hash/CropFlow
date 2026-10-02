@@ -51,14 +51,6 @@ class MessagePermission(db.Model):
     contact = db.relationship('User', foreign_keys=[contact_id])
 
 
-class Worker(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(150), nullable=False)
-    job_title = db.Column(db.String(120), nullable=True)
-    phone = db.Column(db.String(30), nullable=True)
-    farmer_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
-    farmer = db.relationship('User', backref=db.backref('workers', lazy=True, cascade='all, delete-orphan'))
-
 class Product(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)

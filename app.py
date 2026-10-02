@@ -1,7 +1,7 @@
 from flask import Flask, render_template, redirect, url_for, request, flash, jsonify, session
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, User, Product, ProductImage, Reservation, Message, MessagePermission, Worker
+from models import db, User, Product, ProductImage, Reservation, Message, MessagePermission
 from datetime import date, datetime, timedelta
 import os
 from dotenv import load_dotenv
@@ -336,7 +336,7 @@ def login():
             session.permanent = remember
             login_user(user, remember=remember, duration=app.config['PERMANENT_SESSION_LIFETIME'])
             if user.role == 'farmer':
-                return redirect(url_for('dashboard'))
+                return redirect(url_for('profile'))
             return redirect(url_for('index'))
         else:
             flash(_('Invalid credentials. Please try again.'), 'danger')
@@ -405,7 +405,7 @@ def auth_google():
         flash(_('Your account type does not match this login option.'), 'danger')
         return redirect(url_for('login'))
     login_user(user)
-    return redirect(url_for('dashboard') if user.role == 'farmer' else url_for('index'))
+    return redirect(url_for('profile') if user.role == 'farmer' else url_for('index'))
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -601,34 +601,6 @@ def poll_messages(partner_id):
     return jsonify({'messages': [{'id': item.id, 'sender_id': item.sender_id, 'body': item.body, 'created_at': item.created_at.strftime('%Y-%m-%d %H:%M')} for item in new_messages]})
 
 
-@app.route('/workers', methods=['GET', 'POST'])
-@login_required
-def workers():
-    if current_user.role != 'farmer':
-        flash(_('Unauthorized access.'), 'danger')
-        return redirect(url_for('index'))
-    if request.method == 'POST':
-        name = request.form.get('name', '').strip()
-        if name:
-            db.session.add(Worker(name=name[:150], job_title=request.form.get('job_title', '').strip()[:120], phone=request.form.get('phone', '').strip()[:30], farmer_id=current_user.id))
-            db.session.commit()
-            flash(_('Worker added successfully.'), 'success')
-        return redirect(url_for('workers'))
-    return render_template('workers.html', workers=Worker.query.filter_by(farmer_id=current_user.id).order_by(Worker.name.asc()).all())
-
-
-@app.route('/workers/<int:worker_id>/delete', methods=['POST'])
-@login_required
-def delete_worker(worker_id):
-    if current_user.role != 'farmer':
-        return jsonify({'success': False}), 403
-    worker = Worker.query.filter_by(id=worker_id, farmer_id=current_user.id).first_or_404()
-    db.session.delete(worker)
-    db.session.commit()
-    return redirect(url_for('workers'))
-
-
-
 @app.route('/product/<int:product_id>/delete', methods=['POST'])
 @login_required
 def delete_product(product_id):
@@ -673,48 +645,7 @@ def add_product():
 @app.route('/dashboard', methods=['GET', 'POST'])
 @login_required
 def dashboard():
-    if current_user.role != 'farmer':
-        flash(_('Unauthorized access.'), 'danger')
-        return redirect(url_for('index'))
-        
-    if request.method == 'POST':
-        name = request.form.get('name')
-        quantity = request.form.get('quantity')
-        price = request.form.get('price')
-        min_order_quantity = request.form.get('min_order_quantity')
-        expiry_date_str = request.form.get('expiry_date')
-        image_files = request.files.getlist('images')
-        
-        try:
-            if not name or float(quantity) <= 0 or float(price) < 0 or float(min_order_quantity) <= 0 or float(min_order_quantity) > float(quantity):
-                raise ValueError
-            expiry_date = datetime.strptime(expiry_date_str, '%Y-%m-%d').date()
-            new_product = Product(
-                name=name,
-                quantity=float(quantity),
-                min_order_quantity=float(min_order_quantity),
-                price=float(price),
-                expiry_date=expiry_date,
-                farmer_id=current_user.id
-            )
-            db.session.add(new_product)
-            saved_images = save_product_images(new_product, image_files)
-            db.session.commit()
-            flash(_('Product added successfully!') + (f' ({saved_images} images)' if saved_images else ''), 'success')
-        except Exception as e:
-            try:
-                exceeds_stock = float(min_order_quantity) > float(quantity)
-            except (TypeError, ValueError):
-                exceeds_stock = False
-            if exceeds_stock:
-                flash(_('Minimum order cannot exceed available quantity.'), 'danger')
-            else:
-                flash(_('Error adding product. Check data.'), 'danger')
-            
-        return redirect(url_for('dashboard'))
-        
-    farmer_products = Product.query.filter_by(farmer_id=current_user.id).all()
-    return render_template('dashboard.html', products=farmer_products)
+    return redirect(url_for('profile') if current_user.role == 'farmer' else url_for('index'))
 
 
 @app.route('/product/<int:product_id>/edit', methods=['GET', 'POST'])
@@ -736,7 +667,7 @@ def edit_product(product_id):
             save_product_images(product, request.files.getlist('images'))
             db.session.commit()
             flash(_('Crop updated successfully.'), 'success')
-            return redirect(url_for('dashboard'))
+            return redirect(url_for('profile'))
         except (TypeError, ValueError):
             db.session.rollback()
             flash(_('Error updating crop. Check data.'), 'danger')

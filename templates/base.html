@@ -14,9 +14,6 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <div class="splash-screen" data-splash role="dialog" aria-label="CropFlow intro">
-        <div class="splash-content"><span class="splash-mark"><i class="fa-solid fa-leaf"></i></span><span class="splash-wordmark">Crop<span>Flow</span></span><p>{{ _('From the farm\nstraight to business.') }}</p><button class="splash-skip" type="button" data-splash-skip>{{ _('Skip intro') }}</button></div>
-    </div>
     <header class="site-header">
         <div class="container header-inner">
             <a class="brand" href="{{ url_for('index') }}" aria-label="CropFlow home">
@@ -35,7 +32,6 @@
 
                 {% if current_user.is_authenticated %}
                 {% if current_user.role == 'buyer' %}<button class="cart-trigger" type="button" data-cart-open title="{{ _('Shopping cart') }}" aria-label="{{ _('Shopping cart') }}"><i class="fa-solid fa-cart-shopping"></i><span class="cart-badge" data-cart-count>0</span></button>{% endif %}
-                <button class="menu-button" type="button" data-drawer-open aria-label="Open navigation"><i class="fa-solid fa-bars"></i></button>
                 {% else %}
                 <a class="icon-button" href="{{ url_for('set_language', lang='en' if session.get('lang', 'ar') == 'ar' else 'ar') }}" title="{{ _('Language') }}" style="margin-inline-end: 10px;"><i class="fa-solid fa-globe"></i></a>
                 <a class="header-login" href="{{ url_for('login') }}">{{ _('Sign in') }}</a>
@@ -50,7 +46,6 @@
         <div class="drawer-body">
             <p class="drawer-label">{{ _('Workspace') }}</p>
             <a class="drawer-link" href="{{ url_for('index') }}"><i class="fa-solid fa-grip"></i>{{ _('Marketplace') }}</a>
-            {% if current_user.is_authenticated and current_user.role == 'farmer' %}<a class="drawer-link" href="{{ url_for('dashboard') }}"><i class="fa-solid fa-chart-line"></i>{{ _('Dashboard') }}</a>{% endif %}
             {% if current_user.is_authenticated %}<a class="drawer-link" href="{{ url_for('profile') }}"><i class="fa-regular fa-user"></i>{{ _('Profile settings') }}</a>{% endif %}
             <p class="drawer-label">{{ _('Preferences') }}</p>
             <div class="drawer-setting"><span><i class="fa-solid fa-circle-half-stroke"></i>{{ _('Appearance') }}</span><button class="switch" type="button" data-theme-toggle aria-label="Toggle appearance"><span></span></button></div>
@@ -107,10 +102,6 @@
         document.querySelectorAll('[data-cart-open]').forEach((button) => button.addEventListener('click', () => toggleCart(true))); document.querySelectorAll('[data-cart-close]').forEach((button) => button.addEventListener('click', () => toggleCart(false))); window.addEventListener('cropflow-cart-updated', renderCart); renderCart();
         document.querySelectorAll('[data-add-to-cart]').forEach((button) => button.addEventListener('click', () => { const form = button.closest('[data-cart-form]'); const item = { id: button.dataset.id, name: button.dataset.name, farmId: button.dataset.farmId, farmName: button.dataset.farmName, price: Number(button.dataset.price), stock: Number(button.dataset.stock), minimum: Number(button.dataset.minimum), quantity: Number(form?.querySelector('[data-cart-quantity-input]')?.value || button.dataset.minimum) }; const items = readCart(); const existing = items.find((entry) => String(entry.id) === String(item.id)); if (existing) existing.quantity = Math.min(existing.stock, existing.quantity + item.quantity); else items.push(item); writeCart(items); toggleCart(true); }));
         window.setTimeout(() => document.querySelectorAll('.flash').forEach((flash) => flash.classList.add('flash-hidden')), 4500);
-        const splash = document.querySelector('[data-splash]');
-        const closeSplash = () => { if (!splash) return; splash.classList.add('splash-hidden'); sessionStorage.setItem('cropflow-intro-seen', '1'); window.setTimeout(() => splash.remove(), 450); };
-        if (sessionStorage.getItem('cropflow-intro-seen')) splash?.remove();
-        else { window.setTimeout(closeSplash, 3000); document.querySelector('[data-splash-skip]')?.addEventListener('click', closeSplash); }
     </script>
     {% block scripts %}{% endblock %}
 </body>

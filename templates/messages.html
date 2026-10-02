@@ -8,6 +8,7 @@
 {% block scripts %}{% if partner %}<script>
 const historyPanel = document.querySelector('.chat-history');
 let lastMessageId = {{ thread[-1].id if thread else 0 }};
+historyPanel.scrollTop = historyPanel.scrollHeight;
 const pollMessages = async () => {
   try {
     const response = await fetch('{{ url_for('poll_messages', partner_id=partner.id) }}?after=' + lastMessageId, {headers: {'Accept': 'application/json'}});

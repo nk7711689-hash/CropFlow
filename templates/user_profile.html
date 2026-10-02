@@ -17,24 +17,19 @@
             {% endif %}
         </div>
 
-        <h1 class="profile-name">{{ user.full_name or user.username }}</h1>
-        <p class="profile-username">@{{ user.username }} · {{ _('Farmer') if user.role == 'farmer' else _('Buyer') }}</p>
+        <div class="profile-summary">
+            <h1 class="profile-name">{{ user.full_name or user.username }}</h1>
+            <p class="profile-username">@{{ user.username }} · {{ _('Farmer') if user.role == 'farmer' else _('Buyer') }}</p>
+            {% if user.location %}<p class="profile-location"><i class="fa-solid fa-location-dot"></i> {{ user.location }}</p>{% endif %}
+            {% if user.role == 'farmer' %}
+            <p class="profile-bio">{{ user.farm_description or _('No description provided.') }}</p>
+            <div class="profile-tags"><span>{{ user.farm_product_type or _('Vegetables, fruits, herbs') }}</span><span>{{ user.products|length }} {{ _('active listings') }}</span></div>
+            {% endif %}
+        </div>
     </div>
 
-    {# ── Details section ── #}
+    {# ── Profile actions ── #}
     <div class="profile-details">
-        {% if user.location %}
-        <p class="profile-location"><i class="fa-solid fa-location-dot"></i> {{ user.location }}</p>
-        {% endif %}
-
-        {% if user.role == 'farmer' %}
-        <p class="profile-bio">{{ user.farm_description or _('No description provided.') }}</p>
-        <div class="profile-tags">
-            <span>{{ user.farm_product_type or _('Vegetables, fruits, herbs') }}</span>
-            <span>{{ user.products|length }} {{ _('active listings') }}</span>
-        </div>
-        {% endif %}
-
         <div class="profile-actions">
             {% if not current_user.is_authenticated or user.id != current_user.id %}
             <a class="button button-primary" href="{{ url_for('messages', **{'with': user.id}) }}"><i class="fa-regular fa-message"></i> {{ _('Message') }}</a>
@@ -86,11 +81,8 @@
     </div>
     {% endif %}
 
-    {# ── FAB: Add Product ── #}
     {% if current_user.is_authenticated and user.id == current_user.id and user.role == 'farmer' %}
-    <a class="fab-add" href="{{ url_for('add_product') }}" title="{{ _('Add Product') }}">
-        <i class="fa-solid fa-plus"></i>
-    </a>
+    <a class="fab-add" href="{{ url_for('add_product') }}" title="{{ _('Add Product') }}" aria-label="{{ _('Add Product') }}"><i class="fa-solid fa-plus"></i></a>
     {% endif %}
 </section>
 {% endblock %}

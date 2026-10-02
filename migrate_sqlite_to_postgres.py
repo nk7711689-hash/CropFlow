@@ -6,12 +6,12 @@ from dotenv import dotenv_values
 from sqlalchemy import create_engine, inspect, text
 
 from app import app, db, initialize_database
-from models import Product, ProductImage, Reservation, User, Message, MessagePermission, Worker
+from models import Product, ProductImage, Reservation, User, Message, MessagePermission
 
 
 ROOT = Path(__file__).resolve().parent
 SQLITE_PATH = ROOT / "instance" / "cropflow.db"
-TABLES = (User, Product, ProductImage, Reservation, Message, MessagePermission, Worker)
+TABLES = (User, Product, ProductImage, Reservation, Message, MessagePermission)
 
 
 def read_source_rows(source_engine, model):
