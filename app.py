@@ -237,6 +237,10 @@ def initialize_database():
     db.create_all()
 
 
+with app.app_context():
+    initialize_database()
+
+
 def set_verification_code():
     first = random.randint(2, 9)
     second = random.randint(1, 9)
@@ -851,6 +855,4 @@ def api_login():
     })
 
 if __name__ == '__main__':
-    with app.app_context():
-        initialize_database()
     app.run(debug=True)
