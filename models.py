@@ -23,6 +23,7 @@ class User(UserMixin, db.Model):
     farm_description = db.Column(db.Text, nullable=True)
     farm_product_type = db.Column(db.String(120), nullable=True)
     avatar_path = db.Column(db.String(300), nullable=True)
+    is_location_public = db.Column(db.Boolean, default=True)
     google_id = db.Column(db.String(200), unique=True, nullable=True)
 
     products = db.relationship('Product', backref='farmer', lazy=True)
@@ -32,7 +33,9 @@ class Message(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     sender_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
     recipient_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
-    body = db.Column(db.Text, nullable=False)
+    body = db.Column(db.Text, nullable=True)
+    attachment_path = db.Column(db.String(300), nullable=True)
+    attachment_type = db.Column(db.String(20), nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
     read_at = db.Column(db.DateTime, nullable=True)
     sender = db.relationship('User', foreign_keys=[sender_id], backref='sent_messages')

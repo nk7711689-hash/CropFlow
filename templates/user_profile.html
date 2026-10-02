@@ -1,73 +1,96 @@
 {% extends 'base.html' %}
 {% block title %}{{ user.full_name or user.username }}{% endblock %}
 {% block content %}
-<section class="farm-page container">
-    <div class="farm-header" style="position: relative;">
-        {% if user.id == current_user.id %}
-        <div style="position: absolute; top: 0; left: 0;">
-            <a class="button button-quiet button-small" href="{{ url_for('settings') }}" title="{{ _('Settings') }}"><i class="fa-solid fa-gear"></i> {{ _('Settings') }}</a>
-        </div>
+<section class="farm-page container" style="max-width: 700px; padding-top: 30px;">
+
+    {# ── Profile Header: Avatar + Name side by side ── #}
+    <div class="profile-top">
+        {% if current_user.is_authenticated and user.id == current_user.id %}
+        <a class="profile-settings-btn" href="{{ url_for('settings') }}" title="{{ _('Settings') }}"><i class="fa-solid fa-gear"></i></a>
         {% endif %}
-        
-        <div class="farm-avatar">
+
+        <div class="profile-avatar-wrap">
             {% if user.avatar_path %}
                 <img src="{{ url_for('static', filename=user.avatar_path) }}" alt="{{ user.full_name or user.username }}">
             {% else %}
                 <i class="fa-solid fa-user"></i>
             {% endif %}
         </div>
-        <div class="farm-identity">
-            <span class="eyebrow">{{ _('Public Profile') }}</span>
-            <h1>{{ user.full_name or user.username }}</h1>
-            <p>@{{ user.username }} · {{ _('Farmer') if user.role == 'farmer' else _('Buyer') }}</p>
-            {% if user.location %}
-            <p><i class="fa-solid fa-location-dot"></i> {{ user.location }}</p>
-            {% endif %}
-            
-            {% if user.role == 'farmer' %}
-            <p style="max-width: 600px; margin: 10px auto;">{{ user.farm_description or _('No description provided.') }}</p>
-            <div class="farm-tags">
-                <span>{{ user.farm_product_type or _('Vegetables, fruits, herbs') }}</span>
-                <span>{{ user.products|length }} {{ _('active listings') }}</span>
-            </div>
-            {% endif %}
+
+        <h1 class="profile-name">{{ user.full_name or user.username }}</h1>
+        <p class="profile-username">@{{ user.username }} · {{ _('Farmer') if user.role == 'farmer' else _('Buyer') }}</p>
+    </div>
+
+    {# ── Details section ── #}
+    <div class="profile-details">
+        {% if user.location %}
+        <p class="profile-location"><i class="fa-solid fa-location-dot"></i> {{ user.location }}</p>
+        {% endif %}
+
+        {% if user.role == 'farmer' %}
+        <p class="profile-bio">{{ user.farm_description or _('No description provided.') }}</p>
+        <div class="profile-tags">
+            <span>{{ user.farm_product_type or _('Vegetables, fruits, herbs') }}</span>
+            <span>{{ user.products|length }} {{ _('active listings') }}</span>
         </div>
-        <div class="farm-contact">
-            {% if user.id != current_user.id %}
-            <a class="button button-primary" href="{{ url_for('messages', **{'with': user.id}) }}"><i class="fa-regular fa-message"></i>{{ _('Message') }}</a>
+        {% endif %}
+
+        <div class="profile-actions">
+            {% if not current_user.is_authenticated or user.id != current_user.id %}
+            <a class="button button-primary" href="{{ url_for('messages', **{'with': user.id}) }}"><i class="fa-regular fa-message"></i> {{ _('Message') }}</a>
             {% endif %}
-            
+            {% if current_user.is_authenticated and user.id == current_user.id %}
+            <a class="button button-quiet" href="{{ url_for('edit_profile') }}"><i class="fa-solid fa-pen"></i> {{ _('Edit Profile') }}</a>
+            {% endif %}
             {% if user.email %}
-            <a class="button button-quiet" href="mailto:{{ user.email }}"><i class="fa-regular fa-envelope"></i>{{ _('Contact') }}</a>
+            <a class="button button-quiet" href="mailto:{{ user.email }}"><i class="fa-regular fa-envelope"></i> {{ _('Contact') }}</a>
             {% endif %}
         </div>
     </div>
-    
+
+    {# ── Products Grid ── #}
     {% if user.role == 'farmer' %}
-    <div class="product-grid" style="margin-top: 40px;">
-        {% for product in user.products %}
-        <article class="product-card">
-            <a class="product-image" href="{{ url_for('product_detail', product_id=product.id) }}">
-                {% if product.images %}
-                    <img src="{{ url_for('static', filename=product.images[0].path) }}" alt="{{ product.name }}">
-                {% else %}
-                    <i class="fa-solid fa-wheat-awn" title="{{ _('No product image') }}"></i>
+    <div class="profile-products-section">
+        <h2 class="profile-section-title">{{ _('Products') }}</h2>
+        <div class="product-grid">
+            {% for product in user.products %}
+            <article class="product-card" style="position: relative;">
+                {# Edit/Delete buttons #}
+                {% if current_user.is_authenticated and user.id == current_user.id %}
+                <div class="mini-card-actions">
+                    <a href="{{ url_for('edit_product', product_id=product.id) }}" title="{{ _('Edit') }}"><i class="fa-solid fa-pen"></i></a>
+                    <form action="{{ url_for('delete_product', product_id=product.id) }}" method="POST" onsubmit="return confirm('{{ _('Delete this crop?') }}');" style="display: inline; margin: 0;">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" title="{{ _('Delete') }}"><i class="fa-solid fa-trash"></i></button>
+                    </form>
+                </div>
                 {% endif %}
-                <span class="availability"><i class="fa-solid fa-circle"></i> {{ _('Available') }}</span>
-            </a>
-            <h3><a href="{{ url_for('product_detail', product_id=product.id) }}">{{ product.name }}</a></h3>
-            <div class="product-data">
-                <div><span>{{ _('Available volume') }}</span><strong>{{ product.quantity|round(2) }} kg</strong></div>
-                <div><span>{{ _('Minimum order') }}</span><strong>{{ product.min_order_quantity|round(2) }} kg</strong></div>
-            </div>
-            <div class="product-footer">
-                <strong class="product-price">{{ product.price|round(2) }} <small>{{ _('SAR / kg') }}</small></strong>
-            </div>
-        </article>
-        {% else %}
-        <div class="empty-state" style="grid-column: 1 / -1;"><i class="fa-solid fa-seedling"></i><h3>{{ _('No active listings yet.') }}</h3></div>
-        {% endfor %}
+
+                <a class="product-image" href="{{ url_for('product_detail', product_id=product.id) }}">
+                    {% if product.images %}
+                        <img src="{{ url_for('static', filename=product.images[0].path) }}" alt="{{ product.name }}">
+                    {% else %}
+                        <i class="fa-solid fa-wheat-awn" title="{{ _('No product image') }}"></i>
+                    {% endif %}
+                    <span class="availability"><i class="fa-solid fa-circle"></i> {{ _('Available') }}</span>
+                </a>
+                <h3><a href="{{ url_for('product_detail', product_id=product.id) }}">{{ product.name }}</a></h3>
+                <div class="product-footer">
+                    <strong class="product-price">{{ product.price|round(2) }} <small>{{ _('SAR / kg') }}</small></strong>
+                </div>
+            </article>
+            {% else %}
+            <div class="empty-state" style="grid-column: 1 / -1;"><i class="fa-solid fa-seedling"></i><h3>{{ _('No active listings yet.') }}</h3></div>
+            {% endfor %}
+        </div>
     </div>
+    {% endif %}
+
+    {# ── FAB: Add Product ── #}
+    {% if current_user.is_authenticated and user.id == current_user.id and user.role == 'farmer' %}
+    <a class="fab-add" href="{{ url_for('add_product') }}" title="{{ _('Add Product') }}">
+        <i class="fa-solid fa-plus"></i>
+    </a>
     {% endif %}
 </section>
 {% endblock %}

@@ -23,11 +23,24 @@
                 <span class="brand-mark"><i class="fa-solid fa-leaf"></i></span>
                 <span>Crop<span>Flow</span></span>
             </a>
-            <nav class="desktop-nav" aria-label="Main navigation">
-                <a href="{{ url_for('index') }}">{{ _('Marketplace') }}</a>
-                {% if current_user.is_authenticated and current_user.role == 'farmer' %}<a href="{{ url_for('dashboard') }}">{{ _('Dashboard') }}</a>{% endif %}
+            <nav class="desktop-nav" aria-label="Main navigation" style="display: none;">
             </nav>
             <div class="header-actions">
+                {% if request.endpoint in ['index', 'community'] %}
+                <form class="header-search" action="{{ url_for(request.endpoint) }}" method="GET" style="display: flex; align-items: center; background: var(--warm); border-radius: 20px; padding: 4px 12px; margin-inline-end: 15px;">
+                    <i class="fa-solid fa-magnifying-glass" style="color: var(--ink-soft);"></i>
+                    <input type="search" name="q" placeholder="{{ _('Search...') }}" style="border: none; background: transparent; padding: 5px; outline: none; width: 200px;">
+                </form>
+                {% endif %}
+
+                {% if current_user.is_authenticated %}
+                {% if current_user.role == 'buyer' %}<button class="cart-trigger" type="button" data-cart-open title="{{ _('Shopping cart') }}" aria-label="{{ _('Shopping cart') }}"><i class="fa-solid fa-cart-shopping"></i><span class="cart-badge" data-cart-count>0</span></button>{% endif %}
+                <button class="menu-button" type="button" data-drawer-open aria-label="Open navigation"><i class="fa-solid fa-bars"></i></button>
+                {% else %}
+                <a class="icon-button" href="{{ url_for('set_language', lang='en' if session.get('lang', 'ar') == 'ar' else 'ar') }}" title="{{ _('Language') }}" style="margin-inline-end: 10px;"><i class="fa-solid fa-globe"></i></a>
+                <a class="header-login" href="{{ url_for('login') }}">{{ _('Sign in') }}</a>
+                <a class="button button-primary button-small" href="{{ url_for('register') }}">{{ _('Get started') }} <i class="fa-solid fa-arrow-left"></i></a>
+                {% endif %}
             </div>
         </div>
     </header>

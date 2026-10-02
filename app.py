@@ -38,6 +38,21 @@ def get_locale():
 babel = Babel(app, locale_selector=get_locale)
 
 TRANSLATIONS = {
+    'Edit Profile': 'تعديل الملف الشخصي',
+    'Products': 'المحاصيل',
+    'Delete this crop?': 'حذف هذا المحصول؟',
+    'Product deleted successfully.': 'تم حذف المحصول بنجاح.',
+    'Crop added successfully.': 'تمت إضافة المحصول بنجاح.',
+    'Invalid input. Check quantities and dates.': 'مدخلات خاطئة. تحقق من الكميات والتواريخ.',
+    'List your supply and let buyers know what is available.': 'اعرض منتجاتك ودع المشترين يعرفون ما هو متاح.',
+    'Add Product': 'إضافة محصول',
+    'Search...': 'بحث...',
+    'Edit': 'تعديل',
+    'Delete': 'حذف',
+    'Image attached': 'صورة مرفقة',
+    'Voice message': 'رسالة صوتية',
+    'Attach image': 'إرفاق صورة',
+    'Record voice': 'تسجيل صوتي',
     'Login with Terralogic': 'تسجيل الدخول بواسطة Terralogic',
     'YOUR ACCOUNT': 'حسابك', 'Settings': 'الإعدادات',
     'Manage your profile, appearance and privacy.': 'إدارة ملفك الشخصي والمظهر والخصوصية.',
@@ -535,6 +550,8 @@ def messages():
     contacts = User.query.join(Message, or_(Message.sender_id == User.id, Message.recipient_id == User.id)).filter(
         or_(Message.sender_id == current_user.id, Message.recipient_id == current_user.id), User.id != current_user.id
     ).distinct().order_by(User.username.asc()).all()
+    for contact in contacts:
+        contact.has_unread = Message.query.filter_by(sender_id=contact.id, recipient_id=current_user.id, read_at=None).count() > 0
     partner = User.query.get(request.args.get('with', type=int)) if request.args.get('with', type=int) else None
     if partner and partner.id == current_user.id:
         partner = None
@@ -604,6 +621,48 @@ def delete_worker(worker_id):
     db.session.commit()
     return redirect(url_for('workers'))
 
+
+
+@app.route('/product/<int:product_id>/delete', methods=['POST'])
+@login_required
+def delete_product(product_id):
+    product = Product.query.filter_by(id=product_id, farmer_id=current_user.id).first_or_404()
+    for image in product.images:
+        db.session.delete(image)
+    db.session.delete(product)
+    db.session.commit()
+    flash(_('Product deleted successfully.'), 'success')
+    return redirect(url_for('user_profile', user_id=current_user.id))
+
+
+@app.route('/product/add', methods=['GET', 'POST'])
+@login_required
+def add_product():
+    if current_user.role != 'farmer':
+        flash(_('Unauthorized access.'), 'danger')
+        return redirect(url_for('index'))
+    if request.method == 'POST':
+        name = request.form.get('name')
+        quantity = request.form.get('quantity')
+        price = request.form.get('price')
+        min_order_quantity = request.form.get('min_order_quantity')
+        expiry_date_str = request.form.get('expiry_date')
+        image_files = request.files.getlist('images')
+        try:
+            if not name or float(quantity) <= 0 or float(price) < 0 or float(min_order_quantity) <= 0 or float(min_order_quantity) > float(quantity):
+                raise ValueError
+            expiry_date = datetime.strptime(expiry_date_str, '%Y-%m-%d').date()
+            new_product = Product(name=name, quantity=float(quantity), min_order_quantity=float(min_order_quantity), price=float(price), expiry_date=expiry_date, farmer_id=current_user.id)
+            db.session.add(new_product)
+            db.session.commit()
+            if image_files and image_files[0].filename != '':
+                save_product_images(new_product, image_files)
+                db.session.commit()
+            flash(_('Crop added successfully.'), 'success')
+            return redirect(url_for('user_profile', user_id=current_user.id))
+        except ValueError:
+            flash(_('Invalid input. Check quantities and dates.'), 'danger')
+    return render_template('add_product.html')
 
 @app.route('/dashboard', methods=['GET', 'POST'])
 @login_required
