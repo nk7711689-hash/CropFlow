@@ -27,9 +27,9 @@
             </nav>
             <div class="header-actions">
                 {% if request.endpoint in ['index', 'community'] %}
-                <form class="header-search" action="{{ url_for(request.endpoint) }}" method="GET" style="display: flex; align-items: center; background: var(--warm); border-radius: 20px; padding: 4px 12px; margin-inline-end: 15px;">
-                    <i class="fa-solid fa-magnifying-glass" style="color: var(--ink-soft);"></i>
-                    <input type="search" name="q" placeholder="{{ _('Search...') }}" style="border: none; background: transparent; padding: 5px; outline: none; width: 200px;">
+                <form class="header-search" action="{{ url_for(request.endpoint) }}" method="GET">
+                    <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                    <input type="search" name="q" placeholder="{{ _('Search...') }}" aria-label="{{ _('Search...') }}">
                 </form>
                 {% endif %}
 
